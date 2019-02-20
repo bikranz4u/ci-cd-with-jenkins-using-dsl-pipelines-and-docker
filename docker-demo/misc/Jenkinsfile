@@ -9,7 +9,7 @@ node {
    }
    stage('test') {
      nodejs(nodeJSInstallationName: 'nodejs') {       // It will mark the node Js in jenkins
-       sh 'npm install --only=dev'                    // install development packages defined in package.json
+       sh 'npm install'                    // install development packages defined in package.json
        sh 'npm test'                                  // Execute the test script 
      }
    }
