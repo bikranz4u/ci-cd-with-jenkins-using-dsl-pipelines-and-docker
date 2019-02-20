@@ -1,18 +1,20 @@
+// The idea is that we only have one repository with our project. 
+//And in this project we have the pipeline file, often called Jenkins file, And that Jenkins file will then have the steps, the pipeline steps to build this project in Jenkins.
 node {
-   def commit_id
+   def commit_id          // Jenkins doesn't expose it by default in Jenkins pipelines
    stage('Preparation') {
      checkout scm
-     sh "git rev-parse --short HEAD > .git/commit-id"                        
-     commit_id = readFile('.git/commit-id').trim()
+     sh "git rev-parse --short HEAD > .git/commit-id"    // give us the commit ID   & writen to file under .git/commit-id                 
+     commit_id = readFile('.git/commit-id').trim()       // Reading the value from file It's the SHA, it's a unique ID ,later on to tag our image
    }
    stage('test') {
-     nodejs(nodeJSInstallationName: 'nodejs') {
-       sh 'npm install --only=dev'
-       sh 'npm test'
+     nodejs(nodeJSInstallationName: 'nodejs') {       // It will mark the node Js in jenkins
+       sh 'npm install --only=dev'                    // install development packages defined in package.json
+       sh 'npm test'                                  // Execute the test script 
      }
    }
    stage('docker build/push') {
-     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {        // 'dockerhub' is the credential/ID to connect docker HUB repo configured in Jenkins credentails
        def app = docker.build("bikranz4u/packaging-app-with-docker:${commit_id}", '.').push()
      }
    }
