@@ -1,0 +1,159 @@
+- Installing Docker on Jenkins node server
+- Finding Out to use Docker with Jenkins pipeline
+
+==========================================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Example Build') {
+            steps {
+                sh 'mvn --version'
+            }
+        }
+    }
+}
+
+======================== 2 Different Containers with 2 stages ===========
+
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            agent { docker 'maven:3.5-alpine}
+            steps {
+                echo 'Hello JDK'
+                sh 'mvn --version'
+            }
+        }
+        stage('Example test') {
+            agent { docker 'openjdk:8-jre}
+            steps {
+                echo 'Hello JDK'
+                sh 'java -version'
+            }
+        }
+    }
+}
+
+
+=========== Example spring-petclinic ====================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+            }
+        }
+    }
+}
+
+
+=========== Archiving artifacts and finger prints ===============
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+    }
+}
+
+=========== Human Input =================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment ?'
+                echo 'Deploying .......'
+            }
+        }
+    }
+}
+
+======================= Full Deployment =============
+
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment'
+                sh 'scp target/*.jar' jenkins@192.168.3.14:/opt/pet'
+                sh "ssh jenkins@192.168.40.13 'nohup java -jar /opt/pet/spring-petclinic-1.5.1.jar &'"
+            }
+        }
+    }
+}
+
+========= In Docker node deployment ==========
+
+pipeline {
+    agent { label 'linux'}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            agent { docker 'maven:3.5-alpine}
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment'
+                sh 'scp target/*.jar' jenkins@192.168.3.14:/opt/pet'
+                sh "ssh jenkins@192.168.40.13 'nohup java -jar /opt/pet/spring-petclinic-1.5.1.jar &'"
+            }
+        }
+    }
+}

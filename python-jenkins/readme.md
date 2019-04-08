@@ -1,0 +1,1 @@
+https://python-jenkins.readthedocs.io/en/latest/

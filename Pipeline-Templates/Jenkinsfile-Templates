@@ -1,0 +1,422 @@
+- Installing Docker on Jenkins node server
+- Finding Out to use Docker with Jenkins pipeline
+
+==========================================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Example Build') {
+            steps {
+                sh 'mvn --version'
+            }
+        }
+    }
+}
+
+======================== 2 Different Containers with 2 stages ===========
+
+pipeline {
+    agent none
+    stages {
+        stage('Example Build') {
+            agent { docker 'maven:3.5-alpine}
+            steps {
+                echo 'Hello JDK'
+                sh 'mvn --version'
+            }
+        }
+        stage('Example test') {
+            agent { docker 'openjdk:8-jre}
+            steps {
+                echo 'Hello JDK'
+                sh 'java -version'
+            }
+        }
+    }
+}
+
+
+=========== Example spring-petclinic ====================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+            }
+        }
+    }
+}
+
+
+=========== Archiving artifacts and finger prints ===============
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+    }
+}
+
+=========== Human Input =================
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment ?'
+                echo 'Deploying .......'
+            }
+        }
+    }
+}
+
+======================= Full Deployment =============
+
+
+pipeline {
+    agent { docker 'maven:3.5-alpine}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment'
+                sh 'scp target/*.jar' jenkins@192.168.3.14:/opt/pet'
+                sh "ssh jenkins@192.168.40.13 'nohup java -jar /opt/pet/spring-petclinic-1.5.1.jar &'"
+            }
+        }
+    }
+}
+
+========= In Docker node deployment ==========
+
+pipeline {
+    agent { label 'linux'}
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/effectivejenkins/spring-petclinic.git'
+            }
+        }
+        stage('Build') {
+            agent { docker 'maven:3.5-alpine}
+            steps {
+                sh 'mvn clean package'
+                junit '**/target/surefire-reports/TEST-*.xml
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+        stage('Deploy-Post-Approval') {
+            steps {
+                input "Do you approve the deployment'
+                sh 'scp target/*.jar' jenkins@192.168.3.14:/opt/pet'
+                sh "ssh jenkins@192.168.40.13 'nohup java -jar /opt/pet/spring-petclinic-1.5.1.jar &'"
+            }
+        }
+    }
+}
+
+
+==========================================================
+node {
+    stage('FirstStage') {
+   echo 'Hello World'
+    }
+    stage('SecondStage') {
+        echo 'hello world stage 2'
+    }
+}
+
+
+============== OS Dependancy Execution ==========
+
+
+node {
+    stage('OS-Dependancy') {
+        if(isUnix()) {
+            sh 'ls -lsrt'
+        }
+        else {
+            bat dir
+        }
+    }
+}
+
+
+==============  Working with Git ================
+
+node {
+    stage('CheckOut') {
+        git  'https://github.com/effectivejenkins/effective_jenkins_volume2.git'
+    }
+    stage('Check the directory') {
+        sh 'ls -slrt'
+    }
+}
+
+
+============= Managing Passwords from pipeline =========
+# Make sure you have added  credentials under Jenkins's Credentails Section
+node {
+    stage('UsernamePassword-Conjoined') {
+        withCredentials([usernameColonPassword(credentialsId: 'github', variable: 'XYZ')]) {
+            echo "MyPassword is '${XYZ}'"
+            }
+    }
+    stage('UsernamePassword-Separated') {
+        withCredentials([usernamePassword(credentialsId: 'github-new', passwordVariable: 'my_pass_var', usernameVariable: 'my_username_var')]) {
+            echo "MyPassword is '${my_pass_var}'"
+            echo "MyUserName is '${my_username_var}'"
+         }
+    }
+}
+
+=============  Handling Errors in the scripted Pipeline =======
+
+---- FAILURE -------
+node {
+    try {
+        stage('echo') {
+            sh 'echo "Heloo World"'
+            def obj = null 
+            sh "${obj.class}"
+        }
+    }catch (NullPointerException e) {     
+        error 'broken pipeline null point exeception'
+        currentBuild.result = 'FAILURE'
+    }
+}
+
+------ UNSTABLE ---------
+node {
+    try {
+        stage('echo') {
+            sh 'echo "Heloo World"'
+            def obj = null                
+            sh "${obj.class}"
+        }
+    }catch (NullPointerException e) {
+        currentBuild.result = 'UNSTABLE'
+    }
+}
+
+--------- Try -Catch for each stage ----------
+
+node {
+    stage('echo') {
+        try {
+            sh 'echo "Heloo World"'
+            def obj = null                
+            sh "${obj.class}"
+        }
+    }catch (NullPointerException e) {
+        currentBuild.result = 'UNSTABLE'
+    }
+    stage('Stage2') {
+        echo 'Stage2 running'
+    }
+}
+
+
+
+============= Adding a Post Build Script ===================
+--------- Try -Catch with Finally----------
+node {
+    try {
+        stage('echo') {
+            sh 'echo "Heloo World"'
+            def obj = null 
+            sh "${obj.class}"
+        }
+    } catch (NullPointerException e) {     
+        error 'broken pipeline null point exeception'
+        currentBuild.result = 'FAILURE'
+    } finally {
+        stage('postbuild') {
+            echo 'This will always run'
+        }
+    }
+}
+
+============= Exploring Notification System ================
+// Make sure you have configure SMTP Server
+
+node {
+    try {
+        stage('echo') {
+            sh 'echo "Heloo World"'
+            def obj = null 
+            sh "${obj.class}"
+        }
+    } catch (NullPointerException e) {     
+        error 'broken pipeline null point exeception'
+        currentBuild.result = 'FAILURE'
+    } finally {
+        stage('SendMailNotification') {
+            mail to: 'xyz.com',
+            body: "Something Wrong with ${env.Buld_URL}",
+            subject: "Failed Pipeline: ${currentBuild.fullDisplayName}"
+        }
+    }
+}
+
+
+======================== DECLARATIVE PIPELINE ============================
+It consists of  Sections,directives,Steps / assignment stagements
+
+1.) Common Sections --> 
+             Agents  : On which agent the pipeline will run
+             Stages  : Stages of the pipeline
+             Post    : defines the post build steps
+
+
+pipeline {
+    agent {
+        label 'linux'
+    }
+    stages {
+        stage {
+            sh 'echo "Heloo"'
+        }
+        stage {
+            ...
+        }
+    }
+    post {
+        always {
+            echo "Pipeline Executed"
+        }
+    }
+}
+
+2.) Common directives -->
+            Triggers:- automatically triggers the pipeline based on a defination
+            Parameters:- defines one or more Parameters which an user should provide when triggering a pipeline
+            Tools:- defines the tools configured on Jenkins
+            Stage:- Inside of the stages section ; Contains  steps and Agents
+            When:-  gives control to what should be executed int the pileline
+
+pileline {
+    agent any 
+    tools {
+        maven 'M3'
+    }
+    parameters {
+        string(name: 'VERSION',
+                defaultValue: '1.0.0',
+                description: 'What is the version to build?')
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh "./build.sh ${params.VERSION}"
+            }
+        }
+    }
+}
+
+3.)  Defines all the steps of a given stage
+
+pipeline  {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh "./build.sh"
+                echo "Print a message after the Build"
+            }
+        }
+    }
+}
+
+========== Scripted Pipeline Inside Of a DECLARATIVE Pipeline ==========
+
+pipeline  {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                echo "Print a message after the Build"
+                script {
+                    for (int i =0; i < 5; ++i)
+                    echo "Printing Number ${i}"
+                }
+            }
+        }
+    }
+}
+
+
+
+----------- Maven PIPELINE ------------
+pipeline {
+    agent any
+    tools {
+        maven 'M2'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/test.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'mvn clean complie / install
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+                junit '**/target/surefire-reports/TEST-*.xml'
+            }
+        }
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+    }
+}
