@@ -1,1 +1,10 @@
 docker run -d -p 8080:8080 -p 50000:50000 -v /Users/bikrdas/Desktop/DevOps/Jenkins/jenkins_home/:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock --name _jenkins dockerwithinjenkins
+
+docker run -d -p 8080:8080 -p 50000:50000 -v /Users/bikrdas/Desktop/DevOps/ci-cd-with-jenkins-using-dsl-pipelines-and-docker/Jenkins/jenkins_home/:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock --name jenkins dockerwithinjenkins
+
+
+
+sonar-test: a7852ca8c156f18be5bdccfcdfe6d08ff658b74d
+
+
+https://bitbucket.org/tetranoodle/webapp_maven_deploy
